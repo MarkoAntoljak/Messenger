@@ -288,6 +288,8 @@ class SignUpViewController: UIViewController {
                 
                 DatabaseManager.shared.getUserData(with: email) { [weak self] result in
                     
+                    guard let strongSelf = self else {return}
+                    
                     switch result {
                         
                     case .failure(let error):
@@ -298,9 +300,7 @@ class SignUpViewController: UIViewController {
                         
                         let user = User(dictionary: dictionary)
                         
-                        self?.user = user
-                        
-                        guard let strongSelf = self else {return}
+                        strongSelf.user = user
                         
                         guard let image = strongSelf.profileImg.image else {return}
                         
@@ -311,31 +311,28 @@ class SignUpViewController: UIViewController {
                         // save profile photo to storage
                         StorageManager.shared.insertProfilePicture(user: user, fileName: filename, photoData: imageData) { [weak self] result in
                             
-                            
                                 switch result {
                                     
                                 case .success(let url):
                                     
-                                    ProgressHUD.showSuccess("Registered")
+                                    ProgressHUD.showSuccess()
                                     
                                     UserDefaults.standard.set(url, forKey: "profilePictureURL")
-                                    UserDefaults.standard.set(firstName, forKey: "firstName")
-                                    UserDefaults.standard.set(lastName, forKey: "lastName")
-                                    UserDefaults.standard.set(email, forKey: "email")
+                                    UserDefaults.standard.set(user.firstName, forKey: "firstName")
+                                    UserDefaults.standard.set(user.lastName, forKey: "lastName")
+                                    UserDefaults.standard.set(user.fullName, forKey: "fullName")
+                                    UserDefaults.standard.set(user.email, forKey: "email")
                                     
                                     DispatchQueue.main.async {
-                                        let vc = TabBarViewController(user: user)
+                                        let vc = TabBarViewController()
                                         vc.modalPresentationStyle = .fullScreen
                                         self?.present(vc, animated: true)
                                     }
                                     
                                 case .failure(let error):
-                                    
                                     print(error.localizedDescription)
                                     
                                 }
-                            
-                            
                         }
                         
                     }

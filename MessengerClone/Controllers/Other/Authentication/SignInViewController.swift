@@ -242,11 +242,14 @@ class SignInViewController: UIViewController {
                             
                             self?.user = user
                             
-                            UserDefaults.standard.set(email, forKey: "email")
+                            UserDefaults.standard.set(user.email, forKey: "email")
+                            UserDefaults.standard.set(user.firstName, forKey: "firstName")
+                            UserDefaults.standard.set(user.lastName, forKey: "lastName")
+                            UserDefaults.standard.set(user.fullName, forKey: "fullName")
                             
-                            let navVC = UINavigationController(rootViewController: TabBarViewController(user: user))
-                            navVC.modalPresentationStyle = .fullScreen
-                            self?.present(navVC, animated: true)
+                            let vc = TabBarViewController()
+                            vc.modalPresentationStyle = .fullScreen
+                            self?.present(vc, animated: true)
                             
                         }
                     }

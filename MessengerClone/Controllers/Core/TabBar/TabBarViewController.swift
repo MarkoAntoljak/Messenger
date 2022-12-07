@@ -11,22 +11,10 @@ class TabBarViewController: UITabBarController {
     
     // MARK: Attributes
     
-    var user: User?
-    
     // MARK: UI Elements
     
     
     // MARK: Init
-    
-    init(user: User) {
-        self.user = user
-        
-        super.init(nibName: nil, bundle: nil)
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError()
-    }
     
     // MARK: Lifecycle
     
@@ -40,20 +28,37 @@ class TabBarViewController: UITabBarController {
     }
     
     // MARK: Functions
+    
     private func setUpControllers() {
         
-        guard let user = user else {return}
-        
-        let chat = UINavigationController(rootViewController: ConversationsViewController(user: user))
+        let chat = UINavigationController(rootViewController: ConversationsViewController(user: getUser()))
         let profile = UINavigationController(rootViewController: ProfileViewController())
         
         chat.tabBarItem = UITabBarItem(title: "Messages", image: UIImage(systemName: "bubble.left"), tag: 0)
         profile.tabBarItem = UITabBarItem(title: "Profile", image: UIImage(systemName: "person.crop.circle"), tag: 1)
         
         setViewControllers([chat, profile], animated: true)
+        
     }
     
-    
+    /// getting user based on local stored data
+    private func getUser() -> User {
+        
+        guard let firstName = UserDefaults.standard.string(forKey: "firstName"),
+              let lastName = UserDefaults.standard.string(forKey: "lastName"),
+              let fullName = UserDefaults.standard.string(forKey: "fullName"),
+              let email = UserDefaults.standard.string(forKey: "lastName") else {return User(dictionary: [:])}
+        
+        let user = User(dictionary: [
+            "firstName" : firstName,
+            "lastName" : lastName,
+            "fullName" : fullName,
+            "email" : email
+        ])
+        
+        return user
+        
+    }
 
     
   
