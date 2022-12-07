@@ -30,4 +30,12 @@ struct User {
     }
     
     var hasProfilePicture: Bool
+    
+    init(dictionary : [String: Any]) {
+        self.firstName = dictionary["firstName"] as? String ?? ""
+        self.lastName = dictionary["lastName"] as? String ?? ""
+        self.email = dictionary["email"] as? String ?? ""
+        self.hasProfilePicture = true
+    }
+    
 }

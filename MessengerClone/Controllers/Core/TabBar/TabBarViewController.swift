@@ -11,10 +11,22 @@ class TabBarViewController: UITabBarController {
     
     // MARK: Attributes
     
+    var user: User?
+    
     // MARK: UI Elements
     
     
     // MARK: Init
+    
+    init(user: User) {
+        self.user = user
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError()
+    }
     
     // MARK: Lifecycle
     
@@ -30,9 +42,9 @@ class TabBarViewController: UITabBarController {
     // MARK: Functions
     private func setUpControllers() {
         
+        guard let user = user else {return}
         
-        
-        let chat = UINavigationController(rootViewController: ConversationsViewController())
+        let chat = UINavigationController(rootViewController: ConversationsViewController(user: user))
         let profile = UINavigationController(rootViewController: ProfileViewController())
         
         chat.tabBarItem = UITabBarItem(title: "Messages", image: UIImage(systemName: "bubble.left"), tag: 0)

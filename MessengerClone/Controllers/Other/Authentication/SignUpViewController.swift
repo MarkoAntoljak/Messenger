@@ -268,11 +268,9 @@ class SignUpViewController: UIViewController {
             
         }
         
-        // create user object
-        let user = User(firstName: firstName, lastName: lastName, email: email, hasProfilePicture: hasPicture)
         
         // if user didnt put profile picture, alert him
-        if !user.hasProfilePicture {
+        if !hasPicture {
             
             let alert = UIAlertController(title: "Error", message: "Please add your profile picture.", preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "Ok", style: .cancel))
@@ -280,53 +278,69 @@ class SignUpViewController: UIViewController {
             
             return
         }
-            
-        self.user = user
         
         ProgressHUD.show("Registering")
         
         // start authentication, database and storage fetch
-        AuthManager.shared.signUp(user: user, password: password) { [weak self] success in
+        AuthManager.shared.signUp(firstName: firstName, lastName: lastName, email: email, password: password) { [weak self] success in
             
             if success {
                 
-                guard let strongSelf = self else {return}
-                
-                guard let image = strongSelf.profileImg.image else {return}
-                
-                guard let imageData = image.pngData() else {return}
-                
-                let filename = user.profilePictureFilename
-                
-                // save profile photo to storage
-                StorageManager.shared.insertProfilePicture(user: user, fileName: filename, photoData: imageData) { result in
+                DatabaseManager.shared.getUserData(with: email) { [weak self] result in
                     
-                    
-                        switch result {
+                    switch result {
+                        
+                    case .failure(let error):
+                        
+                        print(error.localizedDescription)
+                        
+                    case .success(let dictionary):
+                        
+                        let user = User(dictionary: dictionary)
+                        
+                        self?.user = user
+                        
+                        guard let strongSelf = self else {return}
+                        
+                        guard let image = strongSelf.profileImg.image else {return}
+                        
+                        guard let imageData = image.pngData() else {return}
+                        
+                        let filename = user.profilePictureFilename
+                        
+                        // save profile photo to storage
+                        StorageManager.shared.insertProfilePicture(user: user, fileName: filename, photoData: imageData) { [weak self] result in
                             
-                        case .success(let url):
                             
-                            ProgressHUD.showSuccess("Registered")
+                                switch result {
+                                    
+                                case .success(let url):
+                                    
+                                    ProgressHUD.showSuccess("Registered")
+                                    
+                                    UserDefaults.standard.set(url, forKey: "profilePictureURL")
+                                    UserDefaults.standard.set(firstName, forKey: "firstName")
+                                    UserDefaults.standard.set(lastName, forKey: "lastName")
+                                    UserDefaults.standard.set(email, forKey: "email")
+                                    
+                                    DispatchQueue.main.async {
+                                        let vc = TabBarViewController(user: user)
+                                        vc.modalPresentationStyle = .fullScreen
+                                        self?.present(vc, animated: true)
+                                    }
+                                    
+                                case .failure(let error):
+                                    
+                                    print(error.localizedDescription)
+                                    
+                                }
                             
-                            UserDefaults.standard.set(url, forKey: "profilePictureURL")
-                            UserDefaults.standard.set(firstName, forKey: "firstName")
-                            UserDefaults.standard.set(lastName, forKey: "lastName")
-                            UserDefaults.standard.set(email, forKey: "email")
-                            
-                            DispatchQueue.main.async {
-                                let vc = TabBarViewController()
-                                vc.modalPresentationStyle = .fullScreen
-                                self?.present(vc, animated: true)
-                            }
-                            
-                        case .failure(let error):
-                            
-                            print(error.localizedDescription)
                             
                         }
-                    
-                    
+                        
+                    }
                 }
+                
             } else {
                 
                 ProgressHUD.showError("There was an error, try again")

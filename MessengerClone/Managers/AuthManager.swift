@@ -16,6 +16,13 @@ struct AuthManager {
     
     private let auth = Auth.auth()
     
+    var email: String? {
+       
+        guard let currentUser = auth.currentUser else {return nil}
+        
+        return currentUser.email
+    }
+    
     /// checking current user
     public var isSignedIn: Bool {
         
@@ -55,9 +62,9 @@ struct AuthManager {
     ///   - email: user email
     ///   - password: user password
     ///   - completion: handler that sends back boolean of success
-    public func signUp(user: User, password: String, completion: @escaping (Bool) -> Void) {
+    public func signUp(firstName: String, lastName: String, email: String ,password: String, completion: @escaping (Bool) -> Void) {
         
-        auth.createUser(withEmail: user.email, password: password) { result, error in
+        auth.createUser(withEmail: email, password: password) { result, error in
             
             guard error == nil, result != nil else {
                 print("Error: failed to create a new user.")
@@ -65,7 +72,7 @@ struct AuthManager {
                 return
             }
     
-            DatabaseManager.shared.addNewUser(user: user) { success in
+            DatabaseManager.shared.addNewUser(firstName: firstName, lastName: lastName, email: email) { success in
                 
                 completion(success)
             }

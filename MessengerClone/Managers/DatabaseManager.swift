@@ -21,6 +21,7 @@ struct DatabaseManager {
         
         case SearchingUsersError
         case GetConversationsError
+        case GetUsersError
     }
     
     
@@ -29,15 +30,15 @@ struct DatabaseManager {
     
     // MARK: Functions
     
-    public func addNewUser(user: User, completion: @escaping (Bool) -> Void) {
+    public func addNewUser(firstName: String, lastName: String, email: String, completion: @escaping (Bool) -> Void) {
         
-        let path = database.collection("users").document(user.email.lowercased())
+        let path = database.collection("users").document(email.lowercased())
         
         let userData: [String: Any] = [
-            "firstName" : user.firstName,
-            "lastName" : user.lastName,
-            "email" : user.email,
-            "fullName" : user.fullName
+            "firstName" : firstName,
+            "lastName" : lastName,
+            "email" : email,
+            "fullName" : "\(firstName) \(lastName)"
         ]
         
         path.setData(userData) { error in
@@ -49,6 +50,29 @@ struct DatabaseManager {
             }
 
             completion(true)
+        }
+    }
+    
+    public func getUserData(with email: String, completion: @escaping (Result<[String : Any], Error>) -> Void) {
+        
+        let path = database.collection("users").document(email.lowercased())
+        
+        path.getDocument { snapshot, error in
+            
+            guard let snapshot = snapshot, error == nil else {
+                completion(.failure(ErrorType.GetUsersError))
+                print("Error: there was an error with snapshot")
+                return
+            }
+            
+            guard let data: [String: Any] = snapshot.data() else {
+                completion(.failure(ErrorType.GetUsersError))
+                print("Error: there is no data in document")
+                return
+            }
+            
+            completion(.success(data))
+            
         }
     }
     
@@ -74,16 +98,9 @@ struct DatabaseManager {
             
             for document in snapshot.documents {
                 
-                guard let userData = document.data() as? [String:String] else {
-                    print("Error: cannot convert data in the database")
-                    return
-                }
+                let userData = document.data()
                 
-                let firstname = userData["firstName"]!
-                let lastName = userData["lastName"]!
-                let email = userData["email"]!
-                
-                users.append(User(firstName: firstname, lastName: lastName, email: email, hasProfilePicture: true))
+                users.append(User(dictionary: userData))
             }
             
             completion(.success(users))
@@ -276,6 +293,8 @@ struct DatabaseManager {
             }
             
             guard let document = snapshot.data() else {
+                completion(.failure(ErrorType.GetConversationsError))
+                print("Error: no data in document")
                 return
             }
             
@@ -288,7 +307,10 @@ struct DatabaseManager {
                   let latestMessage = conversationCollection["latest_message"] as? [String:Any],
                   let isRead = latestMessage["is_read"] as? Bool,
                   let message = latestMessage["message"] as? String,
-                  let dateSent = latestMessage["date_sent"] as? String else {return}
+                  let dateSent = latestMessage["date_sent"] as? String else {
+                completion(.success([]))
+                return
+            }
     
             let latestMessageObj = LatestMessage(date: dateSent, text: message, isRead: isRead)
             

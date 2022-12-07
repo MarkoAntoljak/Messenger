@@ -13,7 +13,7 @@ import ProgressHUD
 class SignInViewController: UIViewController {
     
     // MARK: Attributes
-    
+    var user: User?
     
     // MARK: UI Elements
     private lazy var headline: UIImageView = {
@@ -226,16 +226,30 @@ class SignInViewController: UIViewController {
             DispatchQueue.main.async {
                 
                 if success {
-                    
-                    UserDefaults.standard.set(email, forKey: "email")
-                    
                     // go to home view controller
                     ProgressHUD.showSuccess()
                     
-                    let navVC = UINavigationController(rootViewController: TabBarViewController())
-                    navVC.modalPresentationStyle = .fullScreen
-                    self?.present(navVC, animated: true)
-                    
+                    DatabaseManager.shared.getUserData(with: email) { [weak self] result in
+                        
+                        switch result {
+                            
+                        case .failure(let error):
+                            print(error.localizedDescription)
+                            
+                        case .success(let dictionary):
+                            
+                            let user = User(dictionary: dictionary)
+                            
+                            self?.user = user
+                            
+                            UserDefaults.standard.set(email, forKey: "email")
+                            
+                            let navVC = UINavigationController(rootViewController: TabBarViewController(user: user))
+                            navVC.modalPresentationStyle = .fullScreen
+                            self?.present(navVC, animated: true)
+                            
+                        }
+                    }
                 } else {
                     // show error
                     ProgressHUD.showError("Wrong email or password")

@@ -10,12 +10,11 @@ import ProgressHUD
 
 
 class ConversationsViewController: UIViewController {
-
     
     // MARK: Attributes
-    private var user: User?
+    var user: User?
     
-    private var conversations = [Conversation]() 
+    private var conversations = [Conversation]()
     
     // MARK: UI Elements
     
@@ -29,9 +28,9 @@ class ConversationsViewController: UIViewController {
     
     private lazy var label: UILabel = {
         let label = UILabel()
-        label.text = "No messages"
+        label.text = "No messages yet"
         label.isHidden = true
-        label.textColor = .secondarySystemBackground
+        label.textColor = .lightGray
         label.font = .systemFont(ofSize: 20, weight: .bold)
         return label
     }()
@@ -42,15 +41,29 @@ class ConversationsViewController: UIViewController {
         imageView.clipsToBounds = true
         imageView.contentMode = .scaleAspectFit
         imageView.image = UIImage(systemName: "questionmark.bubble")
-        imageView.tintColor = .secondarySystemBackground
+        imageView.tintColor = .lightGray
         return imageView
     }()
+    
+    // MARK: Init
+    
+    init(user: User) {
+        
+        self.user = user
+        
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError()
+    }
+    
     
     // MARK: Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        
         view.backgroundColor = .systemBackground
         
         title = "Messages"
@@ -120,7 +133,7 @@ class ConversationsViewController: UIViewController {
     // MARK: Button Actions
     @objc
     private func didTapNewChat() {
-    
+        
         let vc = NewConversationViewController()
         let navVC = UINavigationController(rootViewController: vc)
         vc.completion = { [weak self] user in
@@ -133,7 +146,7 @@ class ConversationsViewController: UIViewController {
     
     
     // MARK: Functions
-
+    
     private func fetchConversations() {
         
         guard let user = user else {
@@ -151,31 +164,30 @@ class ConversationsViewController: UIViewController {
                 
             case .success(let conversations):
                 
-                if !conversations.isEmpty {
+                self?.conversations = conversations
+                
+                if conversations.isEmpty {
                     
                     self?.tableView.isHidden = true
                     self?.label.isHidden = false
                     self?.imageView.isHidden = false
-                    return
                     
                 } else {
                     
                     self?.tableView.isHidden = false
                     self?.label.isHidden = true
                     self?.imageView.isHidden = true
-                    
-                    self?.conversations = conversations
-                    
-                    DispatchQueue.main.async {
-                        self?.tableView.reloadData()
-                    }
+                }
+                
+                DispatchQueue.main.async {
+                    self?.tableView.reloadData()
                 }
                 
             }
             
         }
     }
-
+    
 }
 
 
@@ -195,7 +207,7 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
         guard let cell = tableView.dequeueReusableCell(withIdentifier: ConversationsTableViewCell.identifier, for: indexPath) as? ConversationsTableViewCell else {return UITableViewCell()}
         
         cell.configure(with: model)
-
+        
         return cell
         
     }

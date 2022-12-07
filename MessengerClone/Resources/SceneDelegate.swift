@@ -25,7 +25,22 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         /// check if the user is already signed in
         if AuthManager.shared.isSignedIn {
             
-            window.rootViewController = TabBarViewController()
+            guard let email = AuthManager.shared.email else {return}
+            
+            DatabaseManager.shared.getUserData(with: email) { result in
+                
+                switch result {
+                    
+                case . failure(let error):
+                    print(error)
+                    
+                case .success(let dictionary):
+                    
+                    let user = User(dictionary: dictionary)
+                    
+                    window.rootViewController = TabBarViewController(user: user)
+                }
+            }
             
         } else {
             
