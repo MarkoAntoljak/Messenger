@@ -20,12 +20,14 @@ class ChatViewController: MessagesViewController {
     
     private let conversationID: String?
     
-    public var user: User
+    public let user: User
     
     private let selfSender: Sender? = {
         
-        guard let email = UserDefaults.standard.string(forKey: "email") else {return nil}
-        let sender = Sender(senderId: email, displayName: "Sir John Ive", photoURL: "")
+        guard let email = UserDefaults.standard.string(forKey: "email"),
+              let fullName = UserDefaults.standard.string(forKey: "fullName") else {return nil}
+        
+        let sender = Sender(senderId: email, displayName: fullName, photoURL: "")
         
         return sender
     }()
@@ -62,7 +64,7 @@ class ChatViewController: MessagesViewController {
         messagesCollectionView.messagesDataSource = self
         messagesCollectionView.messagesDisplayDelegate = self
         messageInputBar.delegate = self
-        
+    
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -98,11 +100,12 @@ class ChatViewController: MessagesViewController {
                 
                 self?.messages = messages
                 
-                DispatchQueue.main.async {
-                    
-                    self?.messagesCollectionView.reloadDataAndKeepOffset()
-                    
-                }
+            }
+            
+            DispatchQueue.main.async {
+                
+                self?.messagesCollectionView.reloadDataAndKeepOffset()
+                
             }
         }
     }
@@ -112,23 +115,23 @@ class ChatViewController: MessagesViewController {
 
 // MARK: Messages Delegates and DataSource
 extension ChatViewController: MessagesDataSource, MessagesLayoutDelegate, MessagesDisplayDelegate {
-    
+
     func currentSender() -> MessageKit.SenderType {
-        
-        guard let selfSender = selfSender else {return Sender(senderId: "q", displayName: "", photoURL: "")}
-        
-        return selfSender
+
+        if let selfSender = selfSender {return selfSender}
+
+        fatalError()
     }
-    
+
     func messageForItem(at indexPath: IndexPath, in messagesCollectionView: MessageKit.MessagesCollectionView) -> MessageKit.MessageType {
         return messages[indexPath.section]
     }
-    
+
     func numberOfSections(in messagesCollectionView: MessageKit.MessagesCollectionView) -> Int {
         return messages.count
     }
-    
-    
+
+
 }
 
 extension ChatViewController: InputBarAccessoryViewDelegate {
@@ -137,29 +140,49 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
         
         guard !text.replacingOccurrences(of: " ", with: "").isEmpty,
         let selfSender = self.selfSender,
-        let messageID = createMessageID() else {return}
+        let messageID = createMessageID() else {
+            return}
+        
+        inputBar.inputTextView.text = ""
+        inputBar.resignFirstResponder()
+        
+        let message = Message(sender: selfSender, messageId: messageID, sentDate: Date(), kind: .text(text))
         
         // send message
         if isNewChat {
             // create new chat in database
-            let message = Message(sender: selfSender, messageId: messageID, sentDate: Date(), kind: .text(text))
-            
-            DatabaseManager.shared.createNewConversation(with: user, receiverName: title ?? "", firstMessage: message) { success in
+            DatabaseManager.shared.createNewConversation(with: user, receiverName: title ?? "", firstMessage: message) { [weak self] success in
                 
                 if success {
                     
-                    print("message sent")
+                    self?.isNewChat = false
                     
                 } else {
                     
-                    print("cannot send, error occured")
-            
+                    print("Error: cannot create new conversation")
+                    
                 }
             }
             
         } else {
             // append to existing chat conversation
+            guard let conversationID = conversationID, let fullName = self.title else {return}
+            
+            DatabaseManager.shared.sendMessage(to: conversationID, otherUserEmail: user.email, receiverName: fullName, newMessage: message) { [weak self] success in
+                
+                if success {
+                    
+                    self?.fetchMessages()
+                    
+                } else {
+                    
+                    print("Error: cannot send new message")
+                }
+                
+            }
+            
         }
+        
     }
 }
 

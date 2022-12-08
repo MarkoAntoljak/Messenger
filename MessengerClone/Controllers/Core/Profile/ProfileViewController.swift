@@ -8,6 +8,7 @@
 import UIKit
 import ProgressHUD
 import SDWebImage
+import SafariServices
 
 class ProfileViewController: UIViewController {
     
@@ -187,15 +188,26 @@ extension ProfileViewController: UITableViewDelegate, UITableViewDataSource {
         
         cell.backgroundColor = .secondarySystemBackground
         
-        cell.textLabel?.text = "Profile"
+        cell.textLabel?.text = "Privacy Policy"
         
         return cell
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return 5
+        return 1
     }
     
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        
+        tableView.deselectRow(at: indexPath, animated: true)
+        
+        DispatchQueue.main.async {
+            guard let url = URL(string: "https://www.facebook.com/help/messenger-app/408883583307426") else {return}
+            
+            let vc = SFSafariViewController(url: url)
+            self.present(vc, animated: true)
+        }
+    }
     
     
 }

@@ -120,7 +120,8 @@ struct DatabaseManager {
     ///   - completion: handler that sends back boolean of success
     public func createNewConversation(with otherUser: User, receiverName: String, firstMessage: Message, completion: @escaping (Bool) -> Void) {
         
-        guard let currentEmail = UserDefaults.standard.string(forKey: "email")?.lowercased() else {return}
+        guard let currentEmail = UserDefaults.standard.string(forKey: "email")?.lowercased(),
+              let fullName = UserDefaults.standard.string(forKey: "fullName") else {return}
         
         let messageDate = firstMessage.sentDate
         
@@ -174,7 +175,7 @@ struct DatabaseManager {
         let recepientConversationData: [String: Any] = [
             "id" : conversationID,
             "other_user_email" : currentEmail,
-            "receiver" : "ME",
+            "receiver" : fullName,
             "latest_message" : [
                 "date_sent" : messageDate,
                 "message" : messageContent,
@@ -401,7 +402,7 @@ struct DatabaseManager {
             
             guard let document = snapshot.data(),
                   
-                  let messagesCollection = document["messages"] as? [[String:Any]]
+                    let messagesCollection = document["messages"] as? [[String:Any]]
                     
             else {
                 completion(.failure(ErrorType.GetMessagesError))
@@ -409,47 +410,116 @@ struct DatabaseManager {
                 return
             }
             
-            let messages: [Message]
-            
-            messages = messagesCollection.compactMap({ dictionary in
+            let messages: [Message] = messagesCollection.compactMap({ dictionary in
                 
-                let content = dictionary["content"] as! String
-                let dateTimestamp = dictionary["date"] as! Timestamp
-                let id = dictionary["id"] as! String
-                let isRead = dictionary["is_read"] as! Bool
-                let receiver = dictionary["receiver"] as! String
-                let senderEmail = dictionary["sender_email"] as! String
-                let type = dictionary["type"] as! String
+                guard let content = dictionary["content"] as? String,
+                      let dateTimestamp = dictionary["date"] as? Timestamp,
+                      let id = dictionary["id"] as? String,
+                      //let isRead = dictionary["is_read"] as? Bool,
+                      let receiver = dictionary["receiver"] as? String,
+                      let senderEmail = dictionary["sender_email"] as? String
+                      //let type = dictionary["type"] as? String
+                else {
+                    return Message(sender: Sender(senderId: "", displayName: "", photoURL: ""), messageId: "", sentDate: Date(), kind: .text(""))
+                }
                 
                 //formating time adn date when message was sent
                 let date = dateTimestamp.dateValue()
-//                let dateFormatter = DateFormatter()
-//                dateFormatter.dateFormat = "dd/MM/yyyy HH:mm"
                 
-                guard let url = UserDefaults.standard.url(forKey: "profilePictureURL") else {
-                    print("url is nil")
-                    return
-                }
+                let sender = Sender(senderId: senderEmail, displayName: receiver, photoURL: "")
                 
-                let photoURL = String(contentsOf: url)
+                return Message(sender: sender, messageId: id, sentDate: date, kind: .text(content))
                 
-                let sender = Sender(senderId: senderEmail, displayName: receiver, photoURL: photoURL)
-                
-                let message = Message(sender: sender, messageId: id, sentDate: date, kind: .text(content))
-                
-                return message
             })
             
             completion(.success(messages))
+        }
+    }
+    
+    /// sending message in chat
+    /// - Parameters:
+    ///   - conversationID: which conversation the user is currently in
+    ///   - message: message to send
+    ///   - completion: handler that sends back boolean of success
+    public func sendMessage(to conversationID: String, otherUserEmail: String, receiverName: String, newMessage: Message, completion: @escaping (Bool) -> Void) {
+        
+        database.collection("users").document(conversationID).getDocument { snapshot, error in
+            
+            guard let currentUserEmail = UserDefaults.standard.string(forKey: "email") else {
+                completion(false)
+                print("Error: no email detected")
+                return
+            }
+            
+            guard let snapshot = snapshot, error == nil else {
+                completion(false)
+                print("Error: there was a problem with snapshot")
+                return
+            }
+            
+            guard var document = snapshot.data(),
+                  var messagesCollection = document["messages"] as? [[String:Any]] else {
+                completion(false)
+                print("Error: there is no data in the document")
+                return
+            }
+            
+            var messageContent = ""
+            
+            switch newMessage.kind {
+                
+            case .text(let messageText):
+                
+                messageContent = messageText
+                
+            case .attributedText(_):
+                break
+            case .photo(_):
+                break
+            case .video(_):
+                break
+            case .location(_):
+                break
+            case .emoji(_):
+                break
+            case .audio(_):
+                break
+            case .contact(_):
+                break
+            case .linkPreview(_):
+                break
+            case .custom(_):
+                break
+            }
+            
+            let newMessageData: [String: Any] = [
+                "id" : newMessage.messageId,
+                "type" : newMessage.kind.description,
+                "content" : messageContent,
+                "date" : newMessage.sentDate,
+                "sender_email" : currentUserEmail,
+                "receiver" : receiverName,
+                "is_read" : false
+            ]
+            
+            messagesCollection.append(newMessageData)
+            
+            document["messages"] = messagesCollection
+            
+            database.collection("users").document("\(conversationID)").setData(document) { error in
+                
+                guard error == nil else {
+                    completion(false)
+                    print("Error: cannot create messages node.")
+                    return
+                }
+                
+                completion(true)
+                
+            }
+            
             
         }
         
     }
-    
-    /// sending message
-    /// - Parameters:
-    ///   - conversation: which conversation the user is currently in
-    ///   - message: message to send
-    ///   - completion: handler that sends back boolean of success
-    public func sendMessage(to conversation: String, message: Message, completion: @escaping (Bool) -> Void) {}
 }
