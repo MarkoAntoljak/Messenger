@@ -78,8 +78,13 @@ class ConversationsViewController: UIViewController {
         addSubviews()
         setUpTableView()
         
-        fetchConversations()
+    }
+    
+    // fetch every time the view appears
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
         
+        fetchConversations()
     }
     
     override func viewDidLayoutSubviews() {
@@ -125,7 +130,7 @@ class ConversationsViewController: UIViewController {
     
     private func createNewConversation(user: User) {
         
-        let vc = ChatViewController(user: user)
+        let vc = ChatViewController(user: user, conversationID: nil)
         vc.isNewChat = true
         self.navigationController?.pushViewController(vc, animated: true)
     }
@@ -161,6 +166,10 @@ class ConversationsViewController: UIViewController {
             case .failure(let error):
                 
                 print(error.localizedDescription)
+                
+                print(user.email)
+                
+                print(user)
                 
             case .success(let conversations):
                 
@@ -220,12 +229,14 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
     /// selecting cell chat
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
+        let model = conversations[indexPath.row]
+        
         tableView.deselectRow(at: indexPath, animated: true)
         
         guard let user = user else {return}
         
         // navigate to the chat conversation
-        let vc = ChatViewController(user: user)
+        let vc = ChatViewController(user: user, conversationID: model.id)
         navigationController?.pushViewController(vc, animated: true)
         
     }

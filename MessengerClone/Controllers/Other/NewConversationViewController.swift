@@ -71,6 +71,7 @@ class NewConversationViewController: UIViewController {
         tableView.delegate = self
         tableView.dataSource = self
         
+        
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -115,9 +116,9 @@ extension NewConversationViewController: UITableViewDelegate, UITableViewDataSou
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let resultname = users[indexPath.row].fullName
-        
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+        
+        let resultname = results[indexPath.row].fullName
         
         cell.textLabel?.text = resultname
         
@@ -126,7 +127,7 @@ extension NewConversationViewController: UITableViewDelegate, UITableViewDataSou
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
-        let user = users[indexPath.row]
+        let user = results[indexPath.row]
         
         tableView.deselectRow(at: indexPath, animated: true)
         
@@ -146,14 +147,15 @@ extension NewConversationViewController: UISearchBarDelegate {
     // when search button is clicked
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         
+        // reseting array
+        results.removeAll()
+        
         searchBar.resignFirstResponder()
         
         guard let searchedText = searchBar.text, !searchedText.replacingOccurrences(of: " ", with: "").isEmpty else {
             print("return")
-            return}
-    
-        // reseting array
-        results.removeAll()
+            return
+        }
     
         loader.startAnimating()
         
@@ -180,8 +182,6 @@ extension NewConversationViewController: UISearchBarDelegate {
                     self?.users = users
                     
                     self?.filterUsers(with: query)
-                    
-                    print(users)
                 
                 case .failure(let error):
                     
@@ -197,12 +197,13 @@ extension NewConversationViewController: UISearchBarDelegate {
         
         guard hasFetched else {return}
         
-        let results: [User] = self.users.filter({
+        let results: [User] = self.users.filter({ user in
             
-            return $0.fullName.lowercased().hasPrefix(searchedtext.lowercased())
+            return user.fullName.lowercased().hasPrefix(searchedtext.lowercased())
         })
         
-        self.results = results
+        // remove current user from search results
+        self.results = results.filter({ $0.fullName != UserDefaults.standard.string(forKey: "fullName")})
         
         updateUI()
         
@@ -211,22 +212,25 @@ extension NewConversationViewController: UISearchBarDelegate {
     // updating UI based on search results
     private func updateUI() {
         
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            
+            guard let self = self else {return}
             
             if self.results.isEmpty {
-                
+                // show no results label
                 self.loader.stopAnimating()
                 self.tableView.isHidden = true
                 self.noResultsLabel.isHidden = false
                 
             } else {
-                
+                // show table view
                 self.loader.stopAnimating()
                 self.tableView.isHidden = false
                 self.noResultsLabel.isHidden = true
                 
-                self.tableView.reloadData()
             }
+            
+            self.tableView.reloadData()
         }
     }
     

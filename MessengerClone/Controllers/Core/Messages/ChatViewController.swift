@@ -6,8 +6,9 @@
 //
 
 import UIKit
-import MessageKit
 import InputBarAccessoryView
+import MessageKit
+
 
 class ChatViewController: MessagesViewController {
     
@@ -16,6 +17,8 @@ class ChatViewController: MessagesViewController {
     private lazy var messages = [Message]()
     
     public var isNewChat = false
+    
+    private let conversationID: String?
     
     public var user: User
     
@@ -31,9 +34,11 @@ class ChatViewController: MessagesViewController {
     
     // MARK: Init
     
-    init(user: User) {
+    init(user: User, conversationID: String?) {
     
         self.user = user
+        
+        self.conversationID = conversationID
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -60,6 +65,12 @@ class ChatViewController: MessagesViewController {
         
     }
     
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        fetchMessages()
+    }
+    
     private func createMessageID() -> String? {
         
         guard let currentUserEmail = UserDefaults.standard.string(forKey: "email") else {return nil}
@@ -67,6 +78,33 @@ class ChatViewController: MessagesViewController {
         let newid = "\(user.email)_\(currentUserEmail)_\(Date())"
         
         return newid
+    }
+    
+    private func fetchMessages() {
+        
+        guard let conversationID = conversationID else {return}
+        
+        DatabaseManager.shared.getMessagesForConversation(with: conversationID) { [weak self] result in
+            
+            switch result {
+                
+            case .failure(let error):
+                
+                print(error.localizedDescription)
+                
+            case .success(let messages):
+                
+                guard !messages.isEmpty else {return}
+                
+                self?.messages = messages
+                
+                DispatchQueue.main.async {
+                    
+                    self?.messagesCollectionView.reloadDataAndKeepOffset()
+                    
+                }
+            }
+        }
     }
     
 }
@@ -77,12 +115,9 @@ extension ChatViewController: MessagesDataSource, MessagesLayoutDelegate, Messag
     
     func currentSender() -> MessageKit.SenderType {
         
-        if let senderType = selfSender {
-            return senderType
-        }
+        guard let selfSender = selfSender else {return Sender(senderId: "q", displayName: "", photoURL: "")}
         
-        fatalError()
-        return Sender(senderId: "1", displayName: "", photoURL: "")
+        return selfSender
     }
     
     func messageForItem(at indexPath: IndexPath, in messagesCollectionView: MessageKit.MessagesCollectionView) -> MessageKit.MessageType {
@@ -109,11 +144,17 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
             // create new chat in database
             let message = Message(sender: selfSender, messageId: messageID, sentDate: Date(), kind: .text(text))
             
-            DatabaseManager.shared.createNewConversation(with: user, name: title ?? "", firstMessage: message) { [weak self] success in
+            DatabaseManager.shared.createNewConversation(with: user, receiverName: title ?? "", firstMessage: message) { success in
                 
-                if success { print("message sent")} else { print("cannot send, error occured")}
-                
-                
+                if success {
+                    
+                    print("message sent")
+                    
+                } else {
+                    
+                    print("cannot send, error occured")
+            
+                }
             }
             
         } else {

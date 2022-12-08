@@ -7,6 +7,7 @@
 
 import Foundation
 import FirebaseFirestore
+import MessageKit
 
 struct DatabaseManager {
     
@@ -22,6 +23,7 @@ struct DatabaseManager {
         case SearchingUsersError
         case GetConversationsError
         case GetUsersError
+        case GetMessagesError
     }
     
     
@@ -48,7 +50,7 @@ struct DatabaseManager {
                 completion(false)
                 return
             }
-
+            
             completion(true)
         }
     }
@@ -116,7 +118,7 @@ struct DatabaseManager {
     ///   - fullName: user full name
     ///   - firstMessage: first message to send
     ///   - completion: handler that sends back boolean of success
-    public func createNewConversation(with otherUser: User, name: String, firstMessage: Message, completion: @escaping (Bool) -> Void) {
+    public func createNewConversation(with otherUser: User, receiverName: String, firstMessage: Message, completion: @escaping (Bool) -> Void) {
         
         guard let currentEmail = UserDefaults.standard.string(forKey: "email")?.lowercased() else {return}
         
@@ -153,13 +155,13 @@ struct DatabaseManager {
         case .custom(_):
             break
         }
-
+        
         // data to create or append to
-        let newConversationData: [String: Any] = [
+        let senderConversationData: [String: Any] = [
             
             "id" : conversationID,
             "other_user_email" : otherUser.email,
-            "name" : name,
+            "receiver" : receiverName,
             "latest_message" : [
                 "date_sent" : messageDate,
                 "message" : messageContent,
@@ -168,9 +170,61 @@ struct DatabaseManager {
             
         ]
         
-        let ref = database.collection("users").document(currentEmail)
+        // recepient data to create or append to
+        let recepientConversationData: [String: Any] = [
+            "id" : conversationID,
+            "other_user_email" : currentEmail,
+            "receiver" : "ME",
+            "latest_message" : [
+                "date_sent" : messageDate,
+                "message" : messageContent,
+                "is_read" : false
+            ]
+        ]
         
-        ref.getDocument { snapshot, error in
+        let refRecipient = database.collection("users").document(otherUser.email)
+        
+        refRecipient.getDocument { snapshot, error in
+            
+            guard let snapshot = snapshot, error == nil else {
+                completion(false)
+                print("Error: there was an error with completion")
+                return
+            }
+            
+            guard var documentData = snapshot.data() else {
+                completion(false)
+                print("there is no document")
+                return
+            }
+            
+            
+            if var conversations = documentData["conversations"] as? [[String: Any]] {
+                // append
+                conversations.append(recepientConversationData)
+                
+                documentData["conversations"] = conversations
+                
+            } else {
+                // create
+                documentData["conversations"] = [recepientConversationData]
+            }
+            
+            refRecipient.setData(documentData) { error in
+                
+                guard error == nil else {
+                    completion(false)
+                    print("Error")
+                    return
+                }
+            }
+            
+        }
+        
+        
+        let refSender = database.collection("users").document(currentEmail)
+        
+        refSender.getDocument { snapshot, error in
             
             guard let snapshot = snapshot, error == nil else {
                 completion(false)
@@ -178,26 +232,26 @@ struct DatabaseManager {
                 return
             }
             
-            guard var data = snapshot.data() else {
+            guard var documentData = snapshot.data() else {
                 completion(false)
                 print("Error: no data in document")
                 return
             }
             
-            if var conversations = data["conversations"] as? [[String: Any]] {
+            if var conversations = documentData["conversations"] as? [[String: Any]] {
                 
                 // append to existing conversation
-                conversations.append(newConversationData)
-                data["conversations"] = conversations
+                conversations.append(senderConversationData)
+                documentData["conversations"] = conversations
                 
             } else {
                 
                 // create new conversation
-                data["conversations"] = [newConversationData]
+                documentData["conversations"] = [senderConversationData]
             }
             
             // set new data
-            ref.setData(data) { error in
+            refSender.setData(documentData) { error in
                 
                 guard error == nil else {
                     
@@ -206,13 +260,13 @@ struct DatabaseManager {
                     return
                 }
                 
-                createMessageConversation(conversationID: conversationID, name: name, firstMessage: firstMessage, completion: completion)
+                createMessageConversation(conversationID: conversationID, receiverName: receiverName, firstMessage: firstMessage, completion: completion)
             }
             
         }
     }
     
-    private func createMessageConversation(conversationID: String, name: String, firstMessage: Message, completion: @escaping (Bool) -> Void) {
+    private func createMessageConversation(conversationID: String, receiverName: String, firstMessage: Message, completion: @escaping (Bool) -> Void) {
         
         guard let currentUserEmail = UserDefaults.standard.string(forKey: "email") else {
             completion(false)
@@ -221,7 +275,7 @@ struct DatabaseManager {
         }
         
         var messageContent = ""
-    
+        
         switch firstMessage.kind {
             
         case .text(let messageText):
@@ -247,7 +301,6 @@ struct DatabaseManager {
         case .custom(_):
             break
         }
-
         
         let message: [String: Any] = [
             "id" : firstMessage.messageId,
@@ -255,8 +308,8 @@ struct DatabaseManager {
             "content" : messageContent,
             "date" : firstMessage.sentDate,
             "sender_email" : currentUserEmail,
-            "is_read" : false,
-            "name" : name
+            "receiver" : receiverName,
+            "is_read" : false
         ]
         
         let data: [String: Any] = [
@@ -298,27 +351,37 @@ struct DatabaseManager {
                 return
             }
             
-            var conversations = [Conversation]()
-            
-            guard let conversationCollection = document["conversation"] as? [String:Any],
-                  let id = conversationCollection["id"] as? String,
-                  let name = conversationCollection["name"] as? String,
-                  let otherUserEmail = conversationCollection["other_user_email"] as? String,
-                  let latestMessage = conversationCollection["latest_message"] as? [String:Any],
-                  let isRead = latestMessage["is_read"] as? Bool,
-                  let message = latestMessage["message"] as? String,
-                  let dateSent = latestMessage["date_sent"] as? String else {
+            guard let conversationCollection = document["conversations"] as? [[String:Any]] else {
+                print("No conversations yet")
                 completion(.success([]))
                 return
             }
-    
-            let latestMessageObj = LatestMessage(date: dateSent, text: message, isRead: isRead)
             
-            let conversation = Conversation(id: id, name: name, otherUserEmail: otherUserEmail, latestMessage: latestMessageObj)
-            
-            conversations.append(conversation)
+            let conversations: [Conversation] = conversationCollection.compactMap({ dictionary in
+                
+                let id = dictionary["id"] as! String
+                let receiver = dictionary["receiver"] as! String
+                let otherUserEmail = dictionary["other_user_email"] as! String
+                let latestMessage = dictionary["latest_message"] as! [String:Any]
+                let isRead = latestMessage["is_read"] as! Bool
+                let message = latestMessage["message"] as! String
+                let dateSentTimestamp = latestMessage["date_sent"] as! Timestamp
+                
+                //formating time adn date when message was sent
+                let date = dateSentTimestamp.dateValue()
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "dd/MM/yyyy"
+                let strDate = dateFormatter.string(from: date)
+                
+                let latestMessageObj = LatestMessage(date: strDate, text: message, isRead: isRead)
+                
+                let conversation = Conversation(id: id, receiver: receiver, otherUserEmail: otherUserEmail, latestMessage: latestMessageObj)
+                
+                return conversation
+            })
             
             completion(.success(conversations))
+            
         }
     }
     
@@ -326,7 +389,62 @@ struct DatabaseManager {
     /// - Parameters:
     ///   - id: id of the conversation
     ///   - completion: handler that sends back an array of messages or error
-    public func getMessagesForConversation(with id: String, completion: @escaping (Result<String,Error>) -> Void) {}
+    public func getMessagesForConversation(with id: String, completion: @escaping (Result<[Message],Error>) -> Void) {
+        
+        database.collection("users").document("\(id)").getDocument { snapshot, error in
+            
+            guard error == nil, let snapshot = snapshot else {
+                completion(.failure(ErrorType.GetMessagesError))
+                print("Error: there was a problem with snapshot")
+                return
+            }
+            
+            guard let document = snapshot.data(),
+                  
+                  let messagesCollection = document["messages"] as? [[String:Any]]
+                    
+            else {
+                completion(.failure(ErrorType.GetMessagesError))
+                print("Error: no data in document")
+                return
+            }
+            
+            let messages: [Message]
+            
+            messages = messagesCollection.compactMap({ dictionary in
+                
+                let content = dictionary["content"] as! String
+                let dateTimestamp = dictionary["date"] as! Timestamp
+                let id = dictionary["id"] as! String
+                let isRead = dictionary["is_read"] as! Bool
+                let receiver = dictionary["receiver"] as! String
+                let senderEmail = dictionary["sender_email"] as! String
+                let type = dictionary["type"] as! String
+                
+                //formating time adn date when message was sent
+                let date = dateTimestamp.dateValue()
+//                let dateFormatter = DateFormatter()
+//                dateFormatter.dateFormat = "dd/MM/yyyy HH:mm"
+                
+                guard let url = UserDefaults.standard.url(forKey: "profilePictureURL") else {
+                    print("url is nil")
+                    return
+                }
+                
+                let photoURL = String(contentsOf: url)
+                
+                let sender = Sender(senderId: senderEmail, displayName: receiver, photoURL: photoURL)
+                
+                let message = Message(sender: sender, messageId: id, sentDate: date, kind: .text(content))
+                
+                return message
+            })
+            
+            completion(.success(messages))
+            
+        }
+        
+    }
     
     /// sending message
     /// - Parameters:

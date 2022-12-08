@@ -44,11 +44,11 @@ class ConversationsTableViewCell: UITableViewCell {
     
     private lazy var profilePicture: UIImageView = {
         let imageView = UIImageView()
+        imageView.image = UIImage(systemName: "person.circle")
         imageView.contentMode = .scaleAspectFill
         imageView.clipsToBounds = true
         imageView.layer.masksToBounds = true
         imageView.layer.cornerRadius = imageView.height / 2
-        imageView.image = UIImage(systemName: "person.circle")
         return imageView
     }()
     
@@ -85,7 +85,7 @@ class ConversationsTableViewCell: UITableViewCell {
         
         // message label
         messageLabel.sizeToFit()
-        messageLabel.frame = CGRect(x: profilePicture.right + 10, y: nameLabel.bottom, width: messageLabel.width, height: messageLabel.height)
+        messageLabel.frame = CGRect(x: profilePicture.right + 10, y: nameLabel.bottom + 5, width: messageLabel.width, height: messageLabel.height)
         
         //date label
         dateLabel.sizeToFit()
@@ -107,24 +107,29 @@ class ConversationsTableViewCell: UITableViewCell {
         
         messageLabel.text = model.latestMessage.text
         dateLabel.text = model.latestMessage.date
-        nameLabel.text = model.name
+        nameLabel.text = model.receiver
         
         // set image
         let path = "users/\(model.otherUserEmail)/profilePhoto.png"
         
         StorageManager.shared.downloadProfilePictureURL(path: path) { [weak self] result in
             
+            guard let strongSelf = self else {return}
+            
             switch result {
                 
             case .failure(let error):
+                
                 print(error.localizedDescription)
                 
             case .success(let url):
                 
                 DispatchQueue.main.async {
-                    self?.profilePicture.sd_setImage(with: url)
+                    
+                    strongSelf.profilePicture.sd_setImage(with: url)
+                    strongSelf.profilePicture.layer.cornerRadius = strongSelf.profilePicture.height / 2
+                
                 }
-        
             }
         }
     }

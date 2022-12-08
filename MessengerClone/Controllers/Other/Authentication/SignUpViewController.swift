@@ -330,6 +330,7 @@ class SignUpViewController: UIViewController {
                                     }
                                     
                                 case .failure(let error):
+                                    
                                     print(error.localizedDescription)
                                     
                                 }

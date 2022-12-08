@@ -12,7 +12,7 @@ struct Conversation {
     
     let id: String
     
-    let name: String
+    let receiver: String
     
     let otherUserEmail: String
     

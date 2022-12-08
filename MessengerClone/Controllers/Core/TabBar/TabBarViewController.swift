@@ -9,13 +9,6 @@ import UIKit
 
 class TabBarViewController: UITabBarController {
     
-    // MARK: Attributes
-    
-    // MARK: UI Elements
-    
-    
-    // MARK: Init
-    
     // MARK: Lifecycle
     
     override func viewDidLoad() {
@@ -24,7 +17,6 @@ class TabBarViewController: UITabBarController {
         view.backgroundColor = .systemBackground
         
         setUpControllers()
-            
     }
     
     // MARK: Functions
@@ -47,7 +39,7 @@ class TabBarViewController: UITabBarController {
         guard let firstName = UserDefaults.standard.string(forKey: "firstName"),
               let lastName = UserDefaults.standard.string(forKey: "lastName"),
               let fullName = UserDefaults.standard.string(forKey: "fullName"),
-              let email = UserDefaults.standard.string(forKey: "lastName") else {return User(dictionary: [:])}
+              let email = UserDefaults.standard.string(forKey: "email") else {return User(dictionary: [:])}
         
         let user = User(dictionary: [
             "firstName" : firstName,
