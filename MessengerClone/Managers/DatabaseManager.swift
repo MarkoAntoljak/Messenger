@@ -55,7 +55,7 @@ struct DatabaseManager {
         }
     }
     
-    public func getUserData(with email: String, completion: @escaping (Result<[String : Any], Error>) -> Void) {
+    public func getUserData(with email: String, completion: @escaping (Result<[String: Any], Error>) -> Void) {
         
         let path = database.collection("users").document(email.lowercased())
         
@@ -360,15 +360,15 @@ struct DatabaseManager {
             
             let conversations: [Conversation] = conversationCollection.compactMap({ dictionary in
                 
-                let id = dictionary["id"] as! String
-                let receiver = dictionary["receiver"] as! String
-                let otherUserEmail = dictionary["other_user_email"] as! String
-                let latestMessage = dictionary["latest_message"] as! [String:Any]
-                let isRead = latestMessage["is_read"] as! Bool
-                let message = latestMessage["message"] as! String
-                let dateSentTimestamp = latestMessage["date_sent"] as! Timestamp
+                guard let id = dictionary["id"] as? String,
+                let receiver = dictionary["receiver"] as? String,
+                let otherUserEmail = dictionary["other_user_email"] as? String,
+                let latestMessage = dictionary["latest_message"] as? [String:Any],
+                let isRead = latestMessage["is_read"] as? Bool,
+                let message = latestMessage["message"] as? String,
+                let dateSentTimestamp = latestMessage["date_sent"] as? Timestamp else {return nil}
                 
-                //formating time adn date when message was sent
+                //formating time and date when message was sent
                 let date = dateSentTimestamp.dateValue()
                 let dateFormatter = DateFormatter()
                 dateFormatter.dateFormat = "dd/MM/yyyy"
@@ -517,9 +517,62 @@ struct DatabaseManager {
                 completion(true)
                 
             }
-            
-            
+        }
+    }
+    
+    private func updateLatestMessage(to conversationID: String, otherUserEmail: String, receiverName: String, messageContent: String, newMessage: Message, completion: @escaping (Bool) -> Void) {
+        
+        guard let currentUserEmail = UserDefaults.standard.string(forKey: "email") else {
+            completion(false)
+            print("Error: no email detected")
+            return
         }
         
+        self.database.collection("users").document(currentUserEmail).getDocument { snapshot, error in
+            
+            guard let snapshot = snapshot, error == nil else {
+                completion(false)
+                print("Error: there was an error with snapshot, line 521")
+                return
+            }
+            
+            guard var documentData = snapshot.data() else {
+                completion(false)
+                print("Error: there is no document")
+                return
+            }
+            
+            guard var conversations = documentData["conversations"] as? [[String: Any]] else {return}
+            
+            for document in conversations {
+            
+                if let currentID = document["id"] as? String, currentID == conversationID {
+                        
+                    let newData: [String: Any] = [
+                        "date" : newMessage.sentDate,
+                        "is_read" : false,
+                        "message" : messageContent
+                    ]
+                    
+                    var updatedDocument = document
+                    
+                    updatedDocument["latest_message"] = newData
+
+                }
+            }
+            
+            documentData["conversations"] = conversations
+            
+            database.collection("users").document(currentUserEmail).setData(documentData) {error in
+                
+                guard error == nil else {
+                    completion(false)
+                    return
+                }
+                print("sucessfully updated")
+                completion(true)
+            }
+            
+        }
     }
 }

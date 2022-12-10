@@ -96,7 +96,10 @@ class ChatViewController: MessagesViewController {
                 
             case .success(let messages):
                 
-                guard !messages.isEmpty else {return}
+                guard !messages.isEmpty else {
+                    print("there are no messages")
+                    return
+                }
                 
                 self?.messages = messages
                 

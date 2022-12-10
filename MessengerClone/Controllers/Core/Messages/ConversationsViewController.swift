@@ -12,7 +12,7 @@ import ProgressHUD
 class ConversationsViewController: UIViewController {
     
     // MARK: Attributes
-    var user: User?
+    let user: User?
     
     private var conversations = [Conversation]()
     
@@ -143,7 +143,12 @@ class ConversationsViewController: UIViewController {
         let navVC = UINavigationController(rootViewController: vc)
         vc.completion = { [weak self] user in
             
-            self?.createNewConversation(user: user)
+            guard let strongSelf = self else {
+                print("no self")
+                return
+            }
+            
+            strongSelf.createNewConversation(user: user)
         }
         
         present(navVC, animated: true)

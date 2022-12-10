@@ -71,7 +71,6 @@ class NewConversationViewController: UIViewController {
         tableView.delegate = self
         tableView.dataSource = self
         
-        
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -111,6 +110,7 @@ extension NewConversationViewController: UITableViewDelegate, UITableViewDataSou
     
     // number of rows
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        
         return results.count
     }
     
